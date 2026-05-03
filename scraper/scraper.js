@@ -176,6 +176,11 @@ async function submitOtp(code) {
 // ----- Check / recover session -----
 
 async function ensureLoggedIn() {
+  // If waiting for OTP, don't try to login again
+  if (waitingForOtp) {
+    return false;
+  }
+
   if (!browser || !page) {
     await initBrowser();
   }
@@ -184,14 +189,23 @@ async function ensureLoggedIn() {
   try {
     const currentUrl = page.url();
     if (currentUrl.includes('/login') || !isLoggedIn) {
-      return await login();
+      const result = await login();
+      // If OTP required, return false but don't retry
+      if (result === 'otp_required') {
+        return false;
+      }
+      return result;
     }
     return true;
   } catch {
     // Page may have crashed
     await closeBrowser();
     await initBrowser();
-    return await login();
+    const result = await login();
+    if (result === 'otp_required') {
+      return false;
+    }
+    return result;
   }
 }
 

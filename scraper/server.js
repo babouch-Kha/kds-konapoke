@@ -134,8 +134,9 @@ async function runScrapeLoop() {
       console.error(`[Server] Scrape error:`, err.message);
       lastError = err.message;
 
-      // If session expired, try to recover
-      if (err.message.includes('Session expired') || err.message.includes('Not logged in')) {
+      // If session expired, try to recover (but not if waiting for OTP)
+      const currentOtpStatus = scraper.getOtpStatus();
+      if (!currentOtpStatus.waiting && (err.message.includes('Session expired') || err.message.includes('Not logged in'))) {
         console.log('[Server] Attempting re-login...');
         try {
           await scraper.closeBrowser();
