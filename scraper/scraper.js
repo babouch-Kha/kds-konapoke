@@ -72,6 +72,24 @@ async function login() {
     console.log('[Scraper] Submitting login form...');
     await page.click('button[type="submit"]');
 
+    // Wait a moment for the form to submit
+    await page.waitForTimeout(3000);
+    console.log('[Scraper] After submit, URL:', page.url());
+
+    // Check for error messages on page
+    const errorMsg = await page.locator('.alert-danger, .error, .invalid-feedback').first().textContent().catch(() => null);
+    if (errorMsg) {
+      console.log('[Scraper] Error message on page:', errorMsg.trim());
+    }
+
+    // Check if we're still on login page
+    if (page.url() === 'https://bo.zelty.fr/' || page.url().includes('login')) {
+      // Maybe wrong credentials or need to wait more
+      console.log('[Scraper] Still on login page, waiting more...');
+      await page.waitForTimeout(3000);
+      console.log('[Scraper] URL after extra wait:', page.url());
+    }
+
     // Wait for navigation after login (redirects to /home then can go to /board)
     console.log('[Scraper] Waiting for redirect after login...');
     await page.waitForURL(/\/(home|board|dashboard)/, {
