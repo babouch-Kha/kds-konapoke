@@ -42,7 +42,17 @@ async function closeBrowser() {
 
 async function login() {
   try {
+    const email = config.zelty.email;
+    const password = config.zelty.password;
+
     console.log('[Scraper] Logging in to Zelty...');
+    console.log(`[Scraper] Email: ${email ? email.substring(0, 3) + '***' : 'MISSING'}`);
+    console.log(`[Scraper] Password: ${password ? '***' + password.length + ' chars' : 'MISSING'}`);
+
+    if (!email || !password) {
+      throw new Error('Missing ZELTY_EMAIL or ZELTY_PASSWORD environment variables');
+    }
+
     await page.goto(config.zelty.loginUrl, {
       waitUntil: 'networkidle',
       timeout: config.scraping.navigationTimeout,
@@ -56,11 +66,14 @@ async function login() {
     }
 
     // Fill login form
-    await page.fill('input[name="email"], input[type="email"]', config.zelty.email);
-    await page.fill('input[name="password"], input[type="password"]', config.zelty.password);
+    console.log('[Scraper] Filling login form...');
+    await page.fill('input[name="email"], input[type="email"]', email);
+    await page.fill('input[name="password"], input[type="password"]', password);
+    console.log('[Scraper] Submitting login form...');
     await page.click('button[type="submit"], input[type="submit"]');
 
     // Wait for navigation after login
+    console.log('[Scraper] Waiting for redirect to board...');
     await page.waitForURL('**/board**', {
       timeout: config.scraping.navigationTimeout,
     });
@@ -70,6 +83,7 @@ async function login() {
     return true;
   } catch (err) {
     console.error('[Scraper] Login failed:', err.message);
+    console.error('[Scraper] Current URL:', page?.url?.() || 'unknown');
     isLoggedIn = false;
     return false;
   }
