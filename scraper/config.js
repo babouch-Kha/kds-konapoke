@@ -8,8 +8,8 @@ module.exports = {
     loginUrl: 'https://bo.zelty.fr/login',
     boardUrl: 'https://bo.zelty.fr/board#tickets',
     ticketBaseUrl: 'https://bo.zelty.fr/tickets',
-    email: process.env.ZELTY_EMAIL || 'souhail.elmaktafi@gmail.com',
-    password: process.env.ZELTY_PASSWORD || 'BatchKDSKonapokePalaiseau91@',
+    email: process.env.ZELTY_EMAIL || '',
+    password: process.env.ZELTY_PASSWORD || '',
   },
 
   // --- Scraping intervals ---
