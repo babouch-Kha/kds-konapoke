@@ -302,6 +302,71 @@
       text-transform: uppercase;
     }
 
+    .otp-modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(27, 42, 74, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .otp-modal.hidden { display: none; }
+    .otp-box {
+      background: #fff;
+      padding: 32px;
+      border-radius: 16px;
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+    }
+    .otp-box__title {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--kona-blue);
+      margin-bottom: 8px;
+    }
+    .otp-box__subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+    .otp-box__input {
+      width: 100%;
+      padding: 16px;
+      font-family: var(--font-mono);
+      font-size: 24px;
+      text-align: center;
+      letter-spacing: 8px;
+      border: 2px solid var(--kona-blue);
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    .otp-box__input:focus {
+      outline: none;
+      border-color: var(--kona-gold);
+    }
+    .otp-box__btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--kona-blue);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .otp-box__btn:hover { background: #2a3d5c; }
+    .otp-box__btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .otp-box__error {
+      color: var(--accent-danger);
+      font-size: 13px;
+      margin-top: 12px;
+    }
+
     .demo-banner {
       position: fixed;
       bottom: 16px;
@@ -352,6 +417,17 @@
         <div class="empty-state__icon">🍜</div>
         <div class="empty-state__text">Chargement...</div>
       </div>
+    </div>
+  </div>
+
+  <!-- OTP Modal -->
+  <div class="otp-modal hidden" id="otpModal">
+    <div class="otp-box">
+      <div class="otp-box__title">🔐 Vérification requise</div>
+      <div class="otp-box__subtitle" id="otpSubtitle">Un code a été envoyé à votre email</div>
+      <input type="text" class="otp-box__input" id="otpInput" placeholder="000000" maxlength="6" inputmode="numeric" pattern="\d{6}">
+      <button class="otp-box__btn" id="otpSubmit">Vérifier</button>
+      <div class="otp-box__error hidden" id="otpError"></div>
     </div>
   </div>
 
@@ -484,6 +560,17 @@
     function updateStatus(meta) {
       const dot = document.getElementById('statusDot');
       const text = document.getElementById('statusText');
+
+      // Check if OTP is required
+      if (meta.otpRequired) {
+        dot.className = 'kds-header__dot error';
+        text.textContent = 'Code OTP requis';
+        showOtpModal(meta.otpEmail);
+        return;
+      } else {
+        hideOtpModal();
+      }
+
       if (meta.lastError) {
         dot.className = 'kds-header__dot error';
         text.textContent = `Erreur — ${meta.lastError}`;
@@ -518,6 +605,69 @@
 
     fetchOrders();
     setInterval(fetchOrders, POLL_INTERVAL);
+
+    // ----- OTP Handling -----
+    const otpModal = document.getElementById('otpModal');
+    const otpInput = document.getElementById('otpInput');
+    const otpSubmit = document.getElementById('otpSubmit');
+    const otpError = document.getElementById('otpError');
+    const otpSubtitle = document.getElementById('otpSubtitle');
+
+    function showOtpModal(email) {
+      otpSubtitle.textContent = `Un code a été envoyé à ${email || 'votre email'}`;
+      otpModal.classList.remove('hidden');
+      otpInput.value = '';
+      otpInput.focus();
+      otpError.classList.add('hidden');
+    }
+
+    function hideOtpModal() {
+      otpModal.classList.add('hidden');
+    }
+
+    async function submitOtp() {
+      const code = otpInput.value.trim();
+      if (!/^\d{6}$/.test(code)) {
+        otpError.textContent = 'Entrez un code à 6 chiffres';
+        otpError.classList.remove('hidden');
+        return;
+      }
+
+      otpSubmit.disabled = true;
+      otpSubmit.textContent = 'Vérification...';
+      otpError.classList.add('hidden');
+
+      try {
+        const res = await fetch(`${API_BASE}/api/otp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code }),
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          hideOtpModal();
+          fetchOrders();
+        } else {
+          otpError.textContent = data.error || 'Code invalide';
+          otpError.classList.remove('hidden');
+        }
+      } catch (err) {
+        otpError.textContent = 'Erreur de connexion';
+        otpError.classList.remove('hidden');
+      } finally {
+        otpSubmit.disabled = false;
+        otpSubmit.textContent = 'Vérifier';
+      }
+    }
+
+    otpSubmit.addEventListener('click', submitOtp);
+    otpInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') submitOtp();
+    });
+    otpInput.addEventListener('input', () => {
+      if (otpInput.value.length === 6) submitOtp();
+    });
 
     async function requestWakeLock() {
       try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch {}

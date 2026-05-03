@@ -9,6 +9,8 @@ let browser = null;
 let context = null;
 let page = null;
 let isLoggedIn = false;
+let waitingForOtp = false;
+let otpEmail = null;
 
 // ----- Browser lifecycle -----
 
@@ -76,6 +78,20 @@ async function login() {
     await page.waitForTimeout(3000);
     console.log('[Scraper] After submit, URL:', page.url());
 
+    // Check if OTP page is displayed
+    if (page.url().includes('/login/otp') || await page.locator('input#otp').count() > 0) {
+      console.log('[Scraper] OTP verification required!');
+      waitingForOtp = true;
+
+      // Try to extract the email where OTP was sent
+      const otpIntro = await page.locator('.otp_intro strong').textContent().catch(() => null);
+      otpEmail = otpIntro || 'votre email';
+      console.log(`[Scraper] OTP sent to: ${otpEmail}`);
+
+      // Return special status - we need to wait for OTP
+      return 'otp_required';
+    }
+
     // Check for error messages on page
     const errorMsg = await page.locator('.alert-danger, .error, .invalid-feedback').first().textContent().catch(() => null);
     if (errorMsg) {
@@ -104,6 +120,56 @@ async function login() {
     console.error('[Scraper] Current URL:', page?.url?.() || 'unknown');
     isLoggedIn = false;
     return false;
+  }
+}
+
+// ----- OTP handling -----
+
+function getOtpStatus() {
+  return {
+    waiting: waitingForOtp,
+    email: otpEmail,
+  };
+}
+
+async function submitOtp(code) {
+  if (!waitingForOtp) {
+    throw new Error('Not waiting for OTP');
+  }
+
+  try {
+    console.log('[Scraper] Submitting OTP code...');
+
+    // Fill OTP input
+    await page.fill('input#otp', code);
+
+    // The form auto-submits when 6 digits are entered, but let's also click submit
+    await page.click('button[type="submit"]');
+
+    // Wait for redirect
+    await page.waitForTimeout(3000);
+    console.log('[Scraper] After OTP submit, URL:', page.url());
+
+    // Check if we're now logged in
+    if (page.url().includes('/home') || page.url().includes('/board') || page.url().includes('/dashboard')) {
+      console.log('[Scraper] OTP verified, login successful!');
+      waitingForOtp = false;
+      otpEmail = null;
+      isLoggedIn = true;
+      return true;
+    }
+
+    // Check for error
+    const errorMsg = await page.locator('.alert-danger, .error').first().textContent().catch(() => null);
+    if (errorMsg) {
+      console.log('[Scraper] OTP error:', errorMsg.trim());
+      throw new Error(errorMsg.trim());
+    }
+
+    throw new Error('OTP verification failed - still on login page');
+  } catch (err) {
+    console.error('[Scraper] OTP submission failed:', err.message);
+    throw err;
   }
 }
 
@@ -406,4 +472,4 @@ async function scrapeAll() {
   return fullOrders;
 }
 
-module.exports = { initBrowser, closeBrowser, login, scrapeAll, ensureLoggedIn };
+module.exports = { initBrowser, closeBrowser, login, scrapeAll, ensureLoggedIn, getOtpStatus, submitOtp };
