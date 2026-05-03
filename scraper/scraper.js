@@ -67,14 +67,14 @@ async function login() {
 
     // Fill login form
     console.log('[Scraper] Filling login form...');
-    await page.fill('input[name="email"], input[type="email"]', email);
-    await page.fill('input[name="password"], input[type="password"]', password);
+    await page.fill('input#login', email);
+    await page.fill('input#password', password);
     console.log('[Scraper] Submitting login form...');
-    await page.click('button[type="submit"], input[type="submit"]');
+    await page.click('button[type="submit"]');
 
-    // Wait for navigation after login
-    console.log('[Scraper] Waiting for redirect to board...');
-    await page.waitForURL('**/board**', {
+    // Wait for navigation after login (redirects to /home then can go to /board)
+    console.log('[Scraper] Waiting for redirect after login...');
+    await page.waitForURL(/\/(home|board|dashboard)/, {
       timeout: config.scraping.navigationTimeout,
     });
 
