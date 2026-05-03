@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KDS — Konapoke Palaiseau</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+    :root {
+      --bg-primary: #f5f5f7;
+      --bg-card: #ffffff;
+      --bg-header: #1b2a4a;
+      --border-card: #1b2a4a;
+      --border-card-light: #d0d5e0;
+      --text-primary: #1a1a2e;
+      --text-secondary: #5a6070;
+      --text-muted: #9099a8;
+      --kona-blue: #1b2a4a;
+      --kona-gold: #c8a05a;
+      --accent-green: #22c55e;
+      --accent-uber: #06C167;
+      --accent-deliveroo: #00CCBC;
+      --accent-borne: #7c5cbf;
+      --accent-surplace: #e0920a;
+      --accent-web: #3b82f6;
+      --accent-warning: #e0920a;
+      --accent-danger: #dc3545;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-sans: 'DM Sans', sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .kds-header {
+      background: var(--bg-header);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+    }
+
+    .kds-header__brand {
+      font-family: var(--font-mono);
+      font-weight: 800;
+      font-size: 20px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--kona-gold);
+    }
+
+    .kds-header__status {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.7);
+      font-family: var(--font-mono);
+    }
+
+    .kds-header__dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    .kds-header__dot.error { background: var(--accent-danger); animation: none; }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .kds-header__clock {
+      font-family: var(--font-mono);
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #fff;
+    }
+
+    .cuisson-bar {
+      background: #fff;
+      border-bottom: 2px solid var(--kona-blue);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 52px;
+    }
+
+    .cuisson-bar__title {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--kona-blue);
+      white-space: nowrap;
+    }
+
+    .cuisson-bar__coming-soon {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-muted);
+      font-style: italic;
+      padding: 4px 14px;
+      border: 1px dashed var(--border-card-light);
+      border-radius: 8px;
+    }
+
+    .orders-container {
+      height: calc(100vh - 64px - 52px);
+      overflow: hidden;
+      padding: 16px;
+    }
+
+    .orders-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 14px;
+      height: 100%;
+      overflow-y: auto;
+      align-content: start;
+      scrollbar-width: none;
+    }
+    .orders-grid::-webkit-scrollbar { display: none; }
+
+    .order-card {
+      background: var(--bg-card);
+      border: 2px solid var(--border-card);
+      border-radius: 12px;
+      overflow: hidden;
+      animation: card-in 0.4s ease-out;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 2px 8px rgba(27, 42, 74, 0.08);
+    }
+
+    @keyframes card-in {
+      from { transform: translateY(10px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .order-card__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--kona-blue);
+      color: #fff;
+    }
+
+    .order-card__number {
+      font-family: var(--font-mono);
+      font-weight: 800;
+      font-size: 28px;
+      letter-spacing: 1px;
+      color: #fff;
+    }
+
+    .order-card__meta {
+      text-align: right;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .order-card__time {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.9);
+    }
+
+    .order-card__mode {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    .order-card__mode.uber { background: var(--accent-uber); color: #fff; }
+    .order-card__mode.deliveroo { background: var(--accent-deliveroo); color: #fff; }
+    .order-card__mode.borne { background: var(--accent-borne); color: #fff; }
+    .order-card__mode.surplace { background: var(--accent-surplace); color: #fff; }
+    .order-card__mode.web { background: var(--accent-web); color: #fff; }
+    .order-card__mode.other { background: var(--text-muted); color: #fff; }
+
+    .order-card__items {
+      padding: 10px 16px 14px;
+      flex: 1;
+    }
+
+    .order-item {
+      padding: 5px 0;
+      border-bottom: 1px solid #f0f1f5;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .order-item:last-child { border-bottom: none; }
+
+    .order-item__qty {
+      font-family: var(--font-mono);
+      font-weight: 800;
+      font-size: 16px;
+      color: var(--kona-blue);
+      min-width: 28px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .order-item__name {
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.3;
+      color: var(--text-primary);
+    }
+
+    .order-item__name.is-cuisson {
+      color: var(--kona-blue);
+      font-weight: 700;
+      padding-left: 18px;
+      position: relative;
+    }
+    .order-item__name.is-cuisson::before {
+      content: '🔥'; position: absolute; left: 0; font-size: 12px;
+    }
+
+    .order-item__options {
+      margin-top: 2px;
+      padding-left: 0;
+      list-style: none;
+    }
+
+    .order-item__options li {
+      font-size: 12px;
+      color: var(--text-secondary);
+      padding: 1px 0 1px 12px;
+      position: relative;
+    }
+    .order-item__options li::before {
+      content: '›'; position: absolute; left: 0; color: var(--text-muted);
+    }
+
+    .order-item__options li.is-cuisson {
+      color: var(--kona-blue);
+      font-weight: 700;
+    }
+    .order-item__options li.is-cuisson::before {
+      content: '🔥'; font-size: 10px;
+    }
+
+    .order-card__timer {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--accent-green);
+      padding: 0 16px 10px;
+      text-align: right;
+    }
+    .order-card__timer.warning { color: var(--accent-warning); }
+    .order-card__timer.danger { color: var(--accent-danger); }
+
+    .order-card__scheduled {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--accent-surplace);
+      padding: 4px 16px;
+      background: #fffcf5;
+      border-bottom: 1px solid #f0f1f5;
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 16px;
+      color: var(--text-muted);
+    }
+    .empty-state__icon { font-size: 64px; opacity: 0.4; }
+    .empty-state__text {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .demo-banner {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--kona-blue);
+      color: var(--kona-gold);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 6px 20px;
+      border-radius: 20px;
+      z-index: 100;
+      letter-spacing: 1px;
+    }
+
+    @media (max-width: 768px) {
+      .orders-grid { grid-template-columns: 1fr; gap: 10px; }
+      .order-card__number { font-size: 24px; }
+      .kds-header { padding: 8px 16px; height: 56px; }
+    }
+
+    @media (min-width: 1400px) {
+      .orders-grid { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); }
+      .order-card__number { font-size: 32px; }
+      .order-item__name { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="kds-header">
+    <div class="kds-header__brand">KONAPOKE KDS</div>
+    <div class="kds-header__status">
+      <div class="kds-header__dot" id="statusDot"></div>
+      <span id="statusText">Connexion...</span>
+    </div>
+    <div class="kds-header__clock" id="clock"></div>
+  </div>
+
+  <div class="cuisson-bar">
+    <div class="cuisson-bar__title">🔥 À lancer</div>
+    <div class="cuisson-bar__coming-soon">À venir — logique de calcul par produit</div>
+  </div>
+
+  <div class="orders-container">
+    <div class="orders-grid" id="ordersGrid">
+      <div class="empty-state">
+        <div class="empty-state__icon">🍜</div>
+        <div class="empty-state__text">Chargement...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin;
+    const POLL_INTERVAL = 5000;
+    let cuissonKeywords = [];
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function parseMode(modeStr) {
+      const m = (modeStr || '').toLowerCase();
+      if (m.includes('uber')) return { label: 'Uber Eats', cls: 'uber' };
+      if (m.includes('deliveroo')) return { label: 'Deliveroo', cls: 'deliveroo' };
+      if (m.includes('sur place')) return { label: 'Sur Place', cls: 'surplace' };
+      if (m.includes('web')) return { label: 'Click & Collect', cls: 'web' };
+      if (m.includes('emporter') || m.includes('borne')) return { label: 'À Emporter', cls: 'borne' };
+      return { label: modeStr || '?', cls: 'other' };
+    }
+
+    function extractTime(dateStr) {
+      const m = dateStr?.match(/(\d{1,2}):(\d{2})/);
+      return m ? `${m[1]}:${m[2]}` : dateStr || '';
+    }
+
+    function computeElapsed(dateStr) {
+      if (!dateStr) return null;
+      const m = dateStr.match(/(\d{2})\/(\d{2})\/(\d{2,4})\s+(?:à\s+)?(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+      if (!m) return null;
+      let [, day, month, year, hour, minute, second] = m;
+      if (year.length === 2) year = '20' + year;
+      second = second || '00';
+      const orderDate = new Date(`${year}-${month}-${day}T${hour.padStart(2,'0')}:${minute}:${second}`);
+      return Math.floor((Date.now() - orderDate) / 60000);
+    }
+
+    function getTimerClass(min) {
+      if (min == null) return '';
+      if (min >= 20) return 'danger';
+      if (min >= 10) return 'warning';
+      return '';
+    }
+
+    function formatElapsed(min) {
+      if (min == null) return '';
+      if (min < 1) return '< 1 min';
+      if (min < 60) return `${min} min`;
+      return `${Math.floor(min/60)}h${min%60 > 0 ? ` ${min%60}min` : ''}`;
+    }
+
+    function isCuissonProduct(name) {
+      const l = (name || '').toLowerCase();
+      return cuissonKeywords.some(kw => kw.type !== 'option' && l.includes(kw.keyword.toLowerCase()));
+    }
+
+    function isCuissonOption(name) {
+      const l = (name || '').toLowerCase();
+      return cuissonKeywords.some(kw => kw.type !== 'product' && l.includes(kw.keyword.toLowerCase()));
+    }
+
+    function updateClock() {
+      document.getElementById('clock').textContent =
+        new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    function renderOrders(orders) {
+      const grid = document.getElementById('ordersGrid');
+      if (!orders || orders.length === 0) {
+        grid.innerHTML = '<div class="empty-state"><div class="empty-state__icon">✅</div><div class="empty-state__text">Aucune commande ouverte</div></div>';
+        return;
+      }
+
+      const sorted = [...orders].sort((a, b) => {
+        const aT = computeElapsed(a.openedAt || a.date) || 0;
+        const bT = computeElapsed(b.openedAt || b.date) || 0;
+        return bT - aT;
+      });
+
+      let html = '';
+      for (const order of sorted) {
+        const mode = parseMode(order.mode || order.deliveryMode);
+        const time = extractTime(order.openedAt || order.date);
+        const elapsed = computeElapsed(order.openedAt || order.date);
+
+        html += `<div class="order-card">
+          <div class="order-card__header">
+            <div class="order-card__number">#${escapeHtml(order.orderNumber || '?')}</div>
+            <div class="order-card__meta">
+              <div class="order-card__time">${escapeHtml(time)}</div>
+              <span class="order-card__mode ${mode.cls}">${escapeHtml(mode.label)}</span>
+            </div>
+          </div>`;
+
+        if (order.scheduledFor) {
+          html += `<div class="order-card__scheduled">⏰ Prévue : ${escapeHtml(order.scheduledFor)}</div>`;
+        }
+
+        html += '<div class="order-card__items">';
+        for (const item of order.items || []) {
+          const isProd = isCuissonProduct(item.name);
+          html += `<div class="order-item">
+            <div class="order-item__qty">${item.qty}x</div>
+            <div>
+              <div class="order-item__name ${isProd ? 'is-cuisson' : ''}">${escapeHtml(item.name)}</div>`;
+          if (item.options && item.options.length > 0) {
+            html += '<ul class="order-item__options">';
+            for (const opt of item.options) {
+              html += `<li class="${isCuissonOption(opt) ? 'is-cuisson' : ''}">${escapeHtml(opt)}</li>`;
+            }
+            html += '</ul>';
+          }
+          html += '</div></div>';
+        }
+        html += '</div>';
+
+        if (elapsed != null) {
+          html += `<div class="order-card__timer ${getTimerClass(elapsed)}">⏱ ${formatElapsed(elapsed)}</div>`;
+        }
+        html += '</div>';
+      }
+      grid.innerHTML = html;
+    }
+
+    function updateStatus(meta) {
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      if (meta.lastError) {
+        dot.className = 'kds-header__dot error';
+        text.textContent = `Erreur — ${meta.lastError}`;
+      } else if (meta.lastUpdate) {
+        dot.className = 'kds-header__dot';
+        const ago = Math.floor((Date.now() - new Date(meta.lastUpdate)) / 1000);
+        text.textContent = `${meta.orderCount} cmd · màj ${ago < 5 ? 'maintenant' : `il y a ${ago}s`}`;
+      } else {
+        dot.className = 'kds-header__dot error';
+        text.textContent = 'En attente...';
+      }
+    }
+
+    async function fetchOrders() {
+      try {
+        const res = await fetch(`${API_BASE}/api/orders`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (cuissonKeywords.length === 0) {
+          try {
+            const cfg = await (await fetch(`${API_BASE}/api/config`)).json();
+            cuissonKeywords = cfg.cuissonKeywords || [];
+          } catch {}
+        }
+        renderOrders(data.orders);
+        updateStatus(data.meta);
+      } catch (err) {
+        console.error('[KDS] Fetch error:', err);
+        updateStatus({ lastError: err.message, orderCount: 0 });
+      }
+    }
+
+    fetchOrders();
+    setInterval(fetchOrders, POLL_INTERVAL);
+
+    async function requestWakeLock() {
+      try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch {}
+    }
+    requestWakeLock();
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') requestWakeLock(); });
+  </script>
+</body>
+</html>
