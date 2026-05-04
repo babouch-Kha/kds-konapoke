@@ -161,6 +161,21 @@ async function submitOtp(code) {
   try {
     console.log('[Scraper] Submitting OTP code...');
 
+    // Make sure we're on the OTP page
+    const currentUrl = page.url();
+    console.log('[Scraper] Current URL before OTP submit:', currentUrl);
+
+    if (!currentUrl.includes('/login') && !currentUrl.includes('otp')) {
+      // Maybe already logged in?
+      if (currentUrl.includes('/home') || currentUrl.includes('/board')) {
+        console.log('[Scraper] Already logged in!');
+        waitingForOtp = false;
+        otpEmail = null;
+        isLoggedIn = true;
+        return true;
+      }
+    }
+
     // Wait for OTP input to be visible
     await page.waitForSelector('input#otp', { timeout: 15000 });
 
@@ -171,7 +186,7 @@ async function submitOtp(code) {
     await page.click('button[type="submit"]');
 
     // Wait for redirect
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(5000);
     console.log('[Scraper] After OTP submit, URL:', page.url());
 
     // Check if we're now logged in
@@ -183,16 +198,20 @@ async function submitOtp(code) {
       return true;
     }
 
-    // Check for error
+    // Check for error on page
     const errorMsg = await page.locator('.alert-danger, .error').first().textContent().catch(() => null);
     if (errorMsg) {
       console.log('[Scraper] OTP error:', errorMsg.trim());
+      // Don't set waitingForOtp to false - we still need a valid OTP
       throw new Error(errorMsg.trim());
     }
 
-    throw new Error('OTP verification failed - still on login page');
+    // Still on login page - OTP might be wrong or expired
+    // Keep waitingForOtp = true so user can try again
+    throw new Error('Code invalide ou expiré - réessayez ou renvoyez le code');
   } catch (err) {
     console.error('[Scraper] OTP submission failed:', err.message);
+    // Important: don't reset waitingForOtp here - let the user retry
     throw err;
   }
 }
@@ -202,6 +221,7 @@ async function submitOtp(code) {
 async function ensureLoggedIn() {
   // If waiting for OTP, don't try to login again
   if (waitingForOtp) {
+    console.log('[Scraper] ensureLoggedIn: waiting for OTP, skipping');
     return false;
   }
 
@@ -209,10 +229,18 @@ async function ensureLoggedIn() {
     await initBrowser();
   }
 
-  // Quick check: try to detect login page
+  // Quick check: try to detect login page or verify we're logged in
   try {
     const currentUrl = page.url();
-    if (currentUrl.includes('/login') || !isLoggedIn) {
+    console.log('[Scraper] ensureLoggedIn: current URL is', currentUrl);
+
+    // If we're on a logged-in page, we're good
+    if (isLoggedIn && (currentUrl.includes('/home') || currentUrl.includes('/board') || currentUrl.includes('/dashboard'))) {
+      return true;
+    }
+
+    // If on login page or OTP page, need to login
+    if (currentUrl.includes('/login') || currentUrl.includes('otp') || !isLoggedIn) {
       const result = await login();
       // If OTP required, return false but don't retry
       if (result === 'otp_required') {
@@ -221,7 +249,8 @@ async function ensureLoggedIn() {
       return result;
     }
     return true;
-  } catch {
+  } catch (err) {
+    console.error('[Scraper] ensureLoggedIn error:', err.message);
     // Page may have crashed
     await closeBrowser();
     await initBrowser();
