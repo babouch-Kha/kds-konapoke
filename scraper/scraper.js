@@ -132,6 +132,21 @@ function getOtpStatus() {
   };
 }
 
+async function resetAndResendOtp() {
+  console.log('[Scraper] Resetting session to resend OTP...');
+  waitingForOtp = false;
+  otpEmail = null;
+  isLoggedIn = false;
+
+  // Close browser and reinitialize
+  await closeBrowser();
+  await initBrowser();
+
+  // Attempt login again - this will trigger a new OTP
+  const result = await login();
+  return result;
+}
+
 async function submitOtp(code) {
   if (!waitingForOtp) {
     throw new Error('Not waiting for OTP');
@@ -486,4 +501,4 @@ async function scrapeAll() {
   return fullOrders;
 }
 
-module.exports = { initBrowser, closeBrowser, login, scrapeAll, ensureLoggedIn, getOtpStatus, submitOtp };
+module.exports = { initBrowser, closeBrowser, login, scrapeAll, ensureLoggedIn, getOtpStatus, submitOtp, resetAndResendOtp };

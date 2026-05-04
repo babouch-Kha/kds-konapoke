@@ -92,6 +92,24 @@ app.post('/api/otp', async (req, res) => {
   }
 });
 
+// Resend OTP endpoint
+app.post('/api/otp/resend', async (req, res) => {
+  try {
+    console.log('[Server] Resending OTP...');
+    const result = await scraper.resetAndResendOtp();
+    if (result === 'otp_required') {
+      const otpStatus = scraper.getOtpStatus();
+      res.json({ success: true, message: 'Nouveau code envoyé', email: otpStatus.email });
+    } else if (result === true) {
+      res.json({ success: true, message: 'Connexion réussie sans OTP' });
+    } else {
+      res.status(500).json({ error: 'Échec de la connexion' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ----- Serve frontend -----
 
 app.use(express.static(path.join(__dirname, '..', 'frontend')));

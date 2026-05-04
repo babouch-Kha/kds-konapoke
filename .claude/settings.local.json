@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "mcp__chrome-devtools__click"
+      "mcp__chrome-devtools__click",
+      "Bash(rtk git add:*)",
+      "Bash(rtk git commit:*)",
+      "Bash(rtk git push)"
     ]
   }
 }

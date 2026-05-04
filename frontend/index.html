@@ -366,6 +366,22 @@
       font-size: 13px;
       margin-top: 12px;
     }
+    .otp-box__resend {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #eee;
+    }
+    .otp-box__resend-btn {
+      background: none;
+      border: none;
+      color: var(--kona-blue);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .otp-box__resend-btn:hover { color: var(--kona-gold); }
+    .otp-box__resend-btn:disabled { color: var(--text-muted); cursor: not-allowed; text-decoration: none; }
 
     .demo-banner {
       position: fixed;
@@ -428,6 +444,9 @@
       <input type="text" class="otp-box__input" id="otpInput" placeholder="000000" maxlength="6" inputmode="numeric" pattern="\d{6}">
       <button class="otp-box__btn" id="otpSubmit">Vérifier</button>
       <div class="otp-box__error hidden" id="otpError"></div>
+      <div class="otp-box__resend">
+        <button class="otp-box__resend-btn" id="otpResend">Renvoyer le code</button>
+      </div>
     </div>
   </div>
 
@@ -668,6 +687,47 @@
     otpInput.addEventListener('input', () => {
       if (otpInput.value.length === 6) submitOtp();
     });
+
+    const otpResend = document.getElementById('otpResend');
+
+    async function resendOtp() {
+      otpResend.disabled = true;
+      otpResend.textContent = 'Envoi en cours...';
+      otpError.classList.add('hidden');
+
+      try {
+        const res = await fetch(`${API_BASE}/api/otp/resend`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          otpInput.value = '';
+          otpInput.focus();
+          if (data.email) {
+            otpSubtitle.textContent = `Nouveau code envoyé à ${data.email}`;
+          }
+          otpResend.textContent = 'Code renvoyé !';
+          setTimeout(() => {
+            otpResend.textContent = 'Renvoyer le code';
+            otpResend.disabled = false;
+          }, 3000);
+        } else {
+          otpError.textContent = data.error || 'Échec de l\'envoi';
+          otpError.classList.remove('hidden');
+          otpResend.textContent = 'Renvoyer le code';
+          otpResend.disabled = false;
+        }
+      } catch (err) {
+        otpError.textContent = 'Erreur de connexion';
+        otpError.classList.remove('hidden');
+        otpResend.textContent = 'Renvoyer le code';
+        otpResend.disabled = false;
+      }
+    }
+
+    otpResend.addEventListener('click', resendOtp);
 
     async function requestWakeLock() {
       try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch {}
