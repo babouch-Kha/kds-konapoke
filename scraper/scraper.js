@@ -273,26 +273,47 @@ function getTodayBoardUrl() {
 // ----- Scrape open orders list -----
 
 async function scrapeOpenOrders() {
+  // Check OTP status first
+  if (waitingForOtp) {
+    throw new Error('En attente du code OTP');
+  }
+
   if (!(await ensureLoggedIn())) {
     throw new Error('Not logged in');
+  }
+
+  // Double-check we're actually on a logged-in page
+  const currentUrl = page.url();
+  if (currentUrl.includes('/login') || currentUrl.includes('otp')) {
+    throw new Error('Not logged in - still on login page');
   }
 
   const boardUrl = getTodayBoardUrl();
   console.log(`[Scraper] Navigating to board: ${boardUrl}`);
 
   await page.goto(boardUrl, {
-    waitUntil: 'networkidle',
+    waitUntil: 'domcontentloaded',
     timeout: config.scraping.navigationTimeout,
   });
+
+  // Wait a bit for dynamic content
+  await page.waitForTimeout(2000);
 
   // Check for login redirect
   if (page.url().includes('/login')) {
     isLoggedIn = false;
-    if (!(await login())) throw new Error('Session expired, re-login failed');
+    const loginResult = await login();
+    if (loginResult === 'otp_required') {
+      throw new Error('OTP requis');
+    }
+    if (!loginResult) {
+      throw new Error('Session expired, re-login failed');
+    }
     await page.goto(boardUrl, {
-      waitUntil: 'networkidle',
+      waitUntil: 'domcontentloaded',
       timeout: config.scraping.navigationTimeout,
     });
+    await page.waitForTimeout(2000);
   }
 
   // Click on the "tickets" tab if not already active

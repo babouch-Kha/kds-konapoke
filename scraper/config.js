@@ -17,9 +17,9 @@ module.exports = {
     // Interval between full scraping cycles (ms)
     pollInterval: 10_000,
     // Timeout for page navigation (ms)
-    navigationTimeout: 15_000,
+    navigationTimeout: 30_000,
     // Timeout for waiting for selectors (ms)
-    selectorTimeout: 8_000,
+    selectorTimeout: 15_000,
   },
 
   // --- Server ---
