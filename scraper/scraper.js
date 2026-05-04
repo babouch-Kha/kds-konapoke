@@ -144,6 +144,12 @@ async function resetAndResendOtp() {
 
   // Attempt login again - this will trigger a new OTP
   const result = await login();
+
+  // If OTP required, wait for the page to be ready
+  if (result === 'otp_required') {
+    await page.waitForSelector('input#otp', { timeout: 10000 }).catch(() => {});
+  }
+
   return result;
 }
 
@@ -155,8 +161,11 @@ async function submitOtp(code) {
   try {
     console.log('[Scraper] Submitting OTP code...');
 
+    // Wait for OTP input to be visible
+    await page.waitForSelector('input#otp', { timeout: 15000 });
+
     // Fill OTP input
-    await page.fill('input#otp', code);
+    await page.fill('input#otp', code, { timeout: 10000 });
 
     // The form auto-submits when 6 digits are entered, but let's also click submit
     await page.click('button[type="submit"]');

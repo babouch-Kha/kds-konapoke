@@ -631,17 +631,23 @@
     const otpSubmit = document.getElementById('otpSubmit');
     const otpError = document.getElementById('otpError');
     const otpSubtitle = document.getElementById('otpSubtitle');
+    let otpModalVisible = false;
 
     function showOtpModal(email) {
-      otpSubtitle.textContent = `Un code a été envoyé à ${email || 'votre email'}`;
-      otpModal.classList.remove('hidden');
-      otpInput.value = '';
-      otpInput.focus();
-      otpError.classList.add('hidden');
+      // Only reset if modal wasn't already visible
+      if (!otpModalVisible) {
+        otpSubtitle.textContent = `Un code a été envoyé à ${email || 'votre email'}`;
+        otpInput.value = '';
+        otpError.classList.add('hidden');
+        otpModal.classList.remove('hidden');
+        otpInput.focus();
+        otpModalVisible = true;
+      }
     }
 
     function hideOtpModal() {
       otpModal.classList.add('hidden');
+      otpModalVisible = false;
     }
 
     async function submitOtp() {
