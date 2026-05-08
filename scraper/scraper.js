@@ -283,13 +283,13 @@ async function scrapeOpenOrders() {
   }
 
   // Double-check we're actually on a logged-in page
-  const currentUrl = page.url();
+  let currentUrl = page.url();
   if (currentUrl.includes('/login') || currentUrl.includes('otp')) {
     throw new Error('Not logged in - still on login page');
   }
 
   const boardUrl = getTodayBoardUrl();
-  const currentUrl = page.url();
+  currentUrl = page.url(); // refresh current URL
   console.log(`[Scraper] Current URL: ${currentUrl}`);
   console.log(`[Scraper] Navigating to board: ${boardUrl}`);
 
