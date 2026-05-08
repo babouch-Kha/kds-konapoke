@@ -333,14 +333,27 @@ async function scrapeOpenOrders() {
   // Wait for the widget tables to load
   await page.waitForSelector('.widget.widget_table', { timeout: config.scraping.selectorTimeout });
 
+  // Wait for the Google Visualization Table to render (it loads asynchronously)
+  console.log('[Scraper] Waiting for Google Visualization Table to render...');
+  await page.waitForSelector('.google-visualization-table-table', { timeout: config.scraping.selectorTimeout }).catch(() => {
+    console.log('[Scraper] Google Visualization Table not found, may be empty');
+  });
+
+  // Extra wait for table content to fully render
+  await page.waitForTimeout(1500);
+
   // Find the "Commandes ouvertes" table
   const orders = await page.evaluate(() => {
     const widgets = document.querySelectorAll('.widget.widget_table');
+    console.log('[Scraper-Eval] Found', widgets.length, 'widget_table elements');
+
     for (const widget of widgets) {
       const title = widget.querySelector('h3.widget-title');
+      console.log('[Scraper-Eval] Widget title:', title?.textContent?.substring(0, 50));
       if (!title || !title.textContent.includes('Commandes ouvertes')) continue;
 
       const rows = widget.querySelectorAll('tbody tr');
+      console.log('[Scraper-Eval] Found', rows.length, 'rows in Commandes ouvertes');
       const results = [];
 
       for (const row of rows) {
@@ -370,6 +383,17 @@ async function scrapeOpenOrders() {
   });
 
   console.log(`[Scraper] Found ${orders.length} open order(s).`);
+  if (orders.length === 0) {
+    // Debug: log page state when no orders found
+    const debugInfo = await page.evaluate(() => {
+      const widgets = document.querySelectorAll('.widget.widget_table');
+      const widgetTitles = Array.from(widgets).map(w => w.querySelector('h3.widget-title')?.textContent?.substring(0, 50));
+      const hasGoogleTable = !!document.querySelector('.google-visualization-table-table');
+      const tableRows = document.querySelectorAll('.widget.widget_table tbody tr').length;
+      return { widgetCount: widgets.length, widgetTitles, hasGoogleTable, tableRows };
+    });
+    console.log('[Scraper] Debug - no orders found. Page state:', JSON.stringify(debugInfo));
+  }
   return orders;
 }
 
