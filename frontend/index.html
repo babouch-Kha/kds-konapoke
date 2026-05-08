@@ -121,30 +121,41 @@
 
     .orders-container {
       height: calc(100vh - 64px - 52px);
-      overflow: hidden;
+      overflow-y: auto;
+      overflow-x: hidden;
       padding: 16px;
+      scroll-behavior: smooth;
     }
+    .orders-container::-webkit-scrollbar { display: none; }
+    .orders-container { scrollbar-width: none; }
 
     .orders-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      display: flex;
+      flex-wrap: wrap;
       gap: 14px;
-      height: 100%;
-      overflow-y: auto;
-      align-content: start;
-      scrollbar-width: none;
+      align-items: flex-start;
+      align-content: flex-start;
     }
-    .orders-grid::-webkit-scrollbar { display: none; }
 
     .order-card {
       background: var(--bg-card);
       border: 2px solid var(--border-card);
       border-radius: 12px;
-      overflow: hidden;
+      overflow: visible;
       animation: card-in 0.4s ease-out;
       display: flex;
       flex-direction: column;
       box-shadow: 0 2px 8px rgba(27, 42, 74, 0.08);
+      /* Default: flexible width */
+      flex: 1 1 320px;
+      min-width: 320px;
+      max-width: 100%;
+    }
+
+    /* Large orders (many items) take full width */
+    .order-card.large-order {
+      flex: 1 1 100%;
+      max-width: 100%;
     }
 
     @keyframes card-in {
@@ -620,7 +631,15 @@
         const mode = parseMode(order.mode || order.deliveryMode);
         const time = extractTime(order.openedAt || order.date);
         const elapsed = computeElapsed(order.openedAt || order.date);
-        const cardClass = skipAnimation ? 'order-card no-animation' : 'order-card';
+
+        // Count total lines (items + options) to determine if it's a large order
+        const totalLines = (order.items || []).reduce((sum, item) => {
+          return sum + 1 + (item.options?.length || 0);
+        }, 0);
+        const isLargeOrder = totalLines > 6; // More than 6 lines = large order
+
+        let cardClass = skipAnimation ? 'order-card no-animation' : 'order-card';
+        if (isLargeOrder) cardClass += ' large-order';
 
         html += `<div class="${cardClass}" data-ticket-id="${escapeHtml(order.ticketId || '')}">
           <div class="order-card__header">
@@ -875,6 +894,69 @@
     }
     requestWakeLock();
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') requestWakeLock(); });
+
+    // ----- Auto-scroll -----
+    // Slowly scrolls the page up and down to show all content
+    const AUTO_SCROLL_SPEED = 1; // pixels per frame
+    const AUTO_SCROLL_PAUSE = 3000; // pause at top/bottom (ms)
+    let autoScrollDirection = 1; // 1 = down, -1 = up
+    let autoScrollPaused = false;
+    let autoScrollTimeout = null;
+
+    function autoScroll() {
+      if (autoScrollPaused) return;
+
+      const container = document.querySelector('.orders-container');
+      if (!container) return;
+
+      const maxScroll = container.scrollHeight - container.clientHeight;
+
+      // If no scroll needed, skip
+      if (maxScroll <= 0) return;
+
+      container.scrollTop += AUTO_SCROLL_SPEED * autoScrollDirection;
+
+      // Check if reached bottom
+      if (autoScrollDirection === 1 && container.scrollTop >= maxScroll) {
+        autoScrollPaused = true;
+        autoScrollTimeout = setTimeout(() => {
+          autoScrollDirection = -1;
+          autoScrollPaused = false;
+        }, AUTO_SCROLL_PAUSE);
+      }
+      // Check if reached top
+      else if (autoScrollDirection === -1 && container.scrollTop <= 0) {
+        autoScrollPaused = true;
+        autoScrollTimeout = setTimeout(() => {
+          autoScrollDirection = 1;
+          autoScrollPaused = false;
+        }, AUTO_SCROLL_PAUSE);
+      }
+    }
+
+    // Run auto-scroll at 60fps
+    setInterval(autoScroll, 1000 / 60);
+
+    // Pause auto-scroll when user interacts
+    const ordersContainer = document.querySelector('.orders-container');
+    if (ordersContainer) {
+      ordersContainer.addEventListener('wheel', () => {
+        autoScrollPaused = true;
+        clearTimeout(autoScrollTimeout);
+        autoScrollTimeout = setTimeout(() => {
+          autoScrollPaused = false;
+        }, 5000); // Resume after 5s of no interaction
+      });
+      ordersContainer.addEventListener('touchstart', () => {
+        autoScrollPaused = true;
+        clearTimeout(autoScrollTimeout);
+      });
+      ordersContainer.addEventListener('touchend', () => {
+        autoScrollTimeout = setTimeout(() => {
+          autoScrollPaused = false;
+        }, 5000);
+      });
+    }
   </script>
 </body>
 </html>
