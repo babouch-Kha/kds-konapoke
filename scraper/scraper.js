@@ -289,12 +289,21 @@ async function scrapeOpenOrders() {
   }
 
   const boardUrl = getTodayBoardUrl();
+  const currentUrl = page.url();
+  console.log(`[Scraper] Current URL: ${currentUrl}`);
   console.log(`[Scraper] Navigating to board: ${boardUrl}`);
 
-  await page.goto(boardUrl, {
-    waitUntil: 'domcontentloaded',
-    timeout: config.scraping.navigationTimeout,
-  });
+  // If already on board page, force reload to get fresh data
+  // (hash-based URLs don't trigger page reload)
+  if (currentUrl.includes('/board')) {
+    console.log('[Scraper] Already on board, forcing reload for fresh data...');
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: config.scraping.navigationTimeout });
+  } else {
+    await page.goto(boardUrl, {
+      waitUntil: 'domcontentloaded',
+      timeout: config.scraping.navigationTimeout,
+    });
+  }
 
   // Wait a bit for dynamic content
   await page.waitForTimeout(2000);
