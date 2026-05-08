@@ -152,6 +152,10 @@
       to { transform: translateY(0); opacity: 1; }
     }
 
+    .order-card.no-animation {
+      animation: none;
+    }
+
     .order-card__header {
       display: flex;
       align-items: center;
@@ -455,6 +459,10 @@
     const POLL_INTERVAL = 5000;
     let cuissonKeywords = [];
     let previousOrdersHash = null;
+    let currentOrdersData = null; // Store orders data for timer updates
+    let audioContextReady = false;
+    let audioContext = null;
+    let lastMeta = null; // Store meta for status updates
 
     // ----- Change Detection -----
     function computeOrdersHash(orders) {
@@ -467,29 +475,59 @@
     }
 
     // ----- Notification Sound -----
-    function playNotificationSound() {
+    // Initialize AudioContext on first user interaction
+    function initAudioContext() {
+      if (audioContext) return;
       try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        // Resume if suspended (happens due to browser autoplay policy)
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+        audioContextReady = true;
+        console.log('[KDS] AudioContext initialized');
+      } catch (e) {
+        console.log('[KDS] AudioContext not available');
+      }
+    }
+
+    // Enable audio on any user interaction
+    ['click', 'touchstart', 'keydown'].forEach(event => {
+      document.addEventListener(event, initAudioContext, { once: true });
+    });
+
+    function playNotificationSound() {
+      if (!audioContext || !audioContextReady) {
+        console.log('[KDS] Sound not available - waiting for user interaction');
+        return;
+      }
+
+      try {
+        // Resume context if needed
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
 
         // Play two quick beeps
         [0, 150].forEach(delay => {
-          const oscillator = audioCtx.createOscillator();
-          const gainNode = audioCtx.createGain();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
 
           oscillator.connect(gainNode);
-          gainNode.connect(audioCtx.destination);
+          gainNode.connect(audioContext.destination);
 
           oscillator.frequency.value = 880; // A5 note
           oscillator.type = 'sine';
 
-          gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime + delay/1000);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + delay/1000 + 0.1);
+          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime + delay/1000);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + delay/1000 + 0.1);
 
-          oscillator.start(audioCtx.currentTime + delay/1000);
-          oscillator.stop(audioCtx.currentTime + delay/1000 + 0.1);
+          oscillator.start(audioContext.currentTime + delay/1000);
+          oscillator.stop(audioContext.currentTime + delay/1000 + 0.1);
         });
+        console.log('[KDS] Notification sound played');
       } catch (e) {
-        console.log('[KDS] Sound notification not available');
+        console.log('[KDS] Sound error:', e.message);
       }
     }
 
@@ -556,8 +594,16 @@
     setInterval(updateClock, 1000);
     updateClock();
 
-    function renderOrders(orders) {
+    // Update card timers every 30 seconds (without re-rendering cards)
+    setInterval(updateCardTimers, 30000);
+
+    // Update status timer every second (without re-fetching or re-rendering)
+    setInterval(updateStatusTimer, 1000);
+
+    function renderOrders(orders, skipAnimation = false) {
       const grid = document.getElementById('ordersGrid');
+      currentOrdersData = orders; // Store for timer updates
+
       if (!orders || orders.length === 0) {
         grid.innerHTML = '<div class="empty-state"><div class="empty-state__icon">✅</div><div class="empty-state__text">Aucune commande ouverte</div></div>';
         return;
@@ -574,8 +620,9 @@
         const mode = parseMode(order.mode || order.deliveryMode);
         const time = extractTime(order.openedAt || order.date);
         const elapsed = computeElapsed(order.openedAt || order.date);
+        const cardClass = skipAnimation ? 'order-card no-animation' : 'order-card';
 
-        html += `<div class="order-card">
+        html += `<div class="${cardClass}" data-ticket-id="${escapeHtml(order.ticketId || '')}">
           <div class="order-card__header">
             <div class="order-card__number">#${escapeHtml(order.orderNumber || '?')}</div>
             <div class="order-card__meta">
@@ -607,14 +654,30 @@
         html += '</div>';
 
         if (elapsed != null) {
-          html += `<div class="order-card__timer ${getTimerClass(elapsed)}">⏱ ${formatElapsed(elapsed)}</div>`;
+          html += `<div class="order-card__timer ${getTimerClass(elapsed)}" data-opened-at="${escapeHtml(order.openedAt || order.date || '')}">⏱ ${formatElapsed(elapsed)}</div>`;
         }
         html += '</div>';
       }
       grid.innerHTML = html;
     }
 
-    function updateStatus(meta) {
+    // Update only the timers inside cards (without re-rendering)
+    function updateCardTimers() {
+      const timerElements = document.querySelectorAll('.order-card__timer[data-opened-at]');
+      timerElements.forEach(el => {
+        const openedAt = el.getAttribute('data-opened-at');
+        if (openedAt) {
+          const elapsed = computeElapsed(openedAt);
+          if (elapsed != null) {
+            el.textContent = `⏱ ${formatElapsed(elapsed)}`;
+            el.className = `order-card__timer ${getTimerClass(elapsed)}`;
+          }
+        }
+      });
+    }
+
+    function updateStatus(meta, isDataChange = false) {
+      lastMeta = meta; // Store for status timer updates
       const dot = document.getElementById('statusDot');
       const text = document.getElementById('statusText');
 
@@ -634,10 +697,25 @@
       } else if (meta.lastUpdate) {
         dot.className = 'kds-header__dot';
         const ago = Math.floor((Date.now() - new Date(meta.lastUpdate)) / 1000);
-        text.textContent = `${meta.orderCount} cmd · màj ${ago < 5 ? 'maintenant' : `il y a ${ago}s`}`;
+        // Show "maintenant" only when data actually changed
+        if (isDataChange) {
+          text.textContent = `${meta.orderCount} cmd · màj maintenant`;
+        } else {
+          text.textContent = `${meta.orderCount} cmd · màj ${ago < 5 ? 'maintenant' : `il y a ${ago}s`}`;
+        }
       } else {
         dot.className = 'kds-header__dot error';
         text.textContent = 'En attente...';
+      }
+    }
+
+    // Update only the status timer text (without affecting cards)
+    function updateStatusTimer() {
+      if (!lastMeta || lastMeta.lastError || lastMeta.otpRequired) return;
+      if (lastMeta.lastUpdate) {
+        const text = document.getElementById('statusText');
+        const ago = Math.floor((Date.now() - new Date(lastMeta.lastUpdate)) / 1000);
+        text.textContent = `${lastMeta.orderCount} cmd · màj ${ago < 5 ? 'maintenant' : `il y a ${ago}s`}`;
       }
     }
 
@@ -655,11 +733,13 @@
 
         // Check if orders have changed
         const newHash = computeOrdersHash(data.orders);
-        const hasChanged = previousOrdersHash !== null && previousOrdersHash !== newHash;
+        const isFirstLoad = previousOrdersHash === null;
+        const hasChanged = !isFirstLoad && previousOrdersHash !== newHash;
 
         // Only re-render if data changed or first load
-        if (previousOrdersHash === null || previousOrdersHash !== newHash) {
-          renderOrders(data.orders);
+        if (isFirstLoad || hasChanged) {
+          // First load: no animation, subsequent changes: with animation
+          renderOrders(data.orders, isFirstLoad);
           previousOrdersHash = newHash;
 
           // Play sound on change (not on first load)
@@ -669,10 +749,11 @@
           }
         }
 
-        updateStatus(data.meta);
+        // Update status (pass isDataChange to show "maintenant" only on actual changes)
+        updateStatus(data.meta, hasChanged);
       } catch (err) {
         console.error('[KDS] Fetch error:', err);
-        updateStatus({ lastError: err.message, orderCount: 0 });
+        updateStatus({ lastError: err.message, orderCount: 0 }, false);
       }
     }
 
