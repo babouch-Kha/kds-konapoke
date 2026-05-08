@@ -454,6 +454,44 @@
     const API_BASE = window.location.origin;
     const POLL_INTERVAL = 5000;
     let cuissonKeywords = [];
+    let previousOrdersHash = null;
+
+    // ----- Change Detection -----
+    function computeOrdersHash(orders) {
+      if (!orders || orders.length === 0) return 'empty';
+      // Create a hash based on order IDs and their items
+      return orders.map(o => {
+        const itemsHash = (o.items || []).map(i => `${i.qty}:${i.name}:${(i.options||[]).join(',')}`).join('|');
+        return `${o.ticketId}:${o.orderNumber}:${itemsHash}`;
+      }).sort().join('##');
+    }
+
+    // ----- Notification Sound -----
+    function playNotificationSound() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Play two quick beeps
+        [0, 150].forEach(delay => {
+          const oscillator = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+
+          oscillator.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+
+          oscillator.frequency.value = 880; // A5 note
+          oscillator.type = 'sine';
+
+          gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime + delay/1000);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + delay/1000 + 0.1);
+
+          oscillator.start(audioCtx.currentTime + delay/1000);
+          oscillator.stop(audioCtx.currentTime + delay/1000 + 0.1);
+        });
+      } catch (e) {
+        console.log('[KDS] Sound notification not available');
+      }
+    }
 
     function escapeHtml(str) {
       const div = document.createElement('div');
@@ -614,7 +652,23 @@
             cuissonKeywords = cfg.cuissonKeywords || [];
           } catch {}
         }
-        renderOrders(data.orders);
+
+        // Check if orders have changed
+        const newHash = computeOrdersHash(data.orders);
+        const hasChanged = previousOrdersHash !== null && previousOrdersHash !== newHash;
+
+        // Only re-render if data changed or first load
+        if (previousOrdersHash === null || previousOrdersHash !== newHash) {
+          renderOrders(data.orders);
+          previousOrdersHash = newHash;
+
+          // Play sound on change (not on first load)
+          if (hasChanged) {
+            console.log('[KDS] Orders changed, playing notification');
+            playNotificationSound();
+          }
+        }
+
         updateStatus(data.meta);
       } catch (err) {
         console.error('[KDS] Fetch error:', err);
