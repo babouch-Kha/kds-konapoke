@@ -147,10 +147,6 @@
       box-shadow: 0 2px 8px rgba(27, 42, 74, 0.08);
     }
 
-    /* Large orders (many items) span all columns */
-    .order-card.large-order {
-      grid-column: 1 / -1;
-    }
 
     @keyframes card-in {
       from { transform: translateY(10px); opacity: 0; }
@@ -626,14 +622,7 @@
         const time = extractTime(order.openedAt || order.date);
         const elapsed = computeElapsed(order.openedAt || order.date);
 
-        // Count total lines (items + options) to determine if it's a large order
-        const totalLines = (order.items || []).reduce((sum, item) => {
-          return sum + 1 + (item.options?.length || 0);
-        }, 0);
-        const isLargeOrder = totalLines > 6; // More than 6 lines = large order
-
-        let cardClass = skipAnimation ? 'order-card no-animation' : 'order-card';
-        if (isLargeOrder) cardClass += ' large-order';
+        const cardClass = skipAnimation ? 'order-card no-animation' : 'order-card';
 
         html += `<div class="${cardClass}" data-ticket-id="${escapeHtml(order.ticketId || '')}">
           <div class="order-card__header">
