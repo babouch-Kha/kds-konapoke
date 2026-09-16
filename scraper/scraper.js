@@ -60,8 +60,8 @@ async function login() {
       timeout: config.scraping.navigationTimeout,
     });
 
-    // Check if already logged in (redirected to board)
-    if (page.url().includes('/board') || page.url().includes('/dashboard')) {
+    // Check if already logged in (redirected to board or new app.zelty.fr)
+    if (page.url().includes('/board') || page.url().includes('/dashboard') || page.url().includes('app.zelty.fr')) {
       console.log('[Scraper] Already logged in.');
       isLoggedIn = true;
       return true;
@@ -72,7 +72,21 @@ async function login() {
     await page.fill('input#login', email);
     await page.fill('input#password', password);
     console.log('[Scraper] Submitting login form...');
-    await page.click('button[type="submit"]');
+
+    // The click may timeout if Zelty redirects to app.zelty.fr (SPA that loads slowly).
+    // Catch navigation timeouts — as long as we left the login page, the click succeeded.
+    try {
+      await page.click('button[type="submit"]', { timeout: config.scraping.navigationTimeout });
+    } catch (clickErr) {
+      const urlAfterClick = page.url();
+      const navigatedAway =
+        urlAfterClick.includes('app.zelty.fr') ||
+        urlAfterClick.includes('/login/otp') ||
+        urlAfterClick.includes('/home') ||
+        urlAfterClick.includes('/board');
+      if (!navigatedAway) throw clickErr;
+      console.log('[Scraper] Click navigation timeout (SPA), but navigated to:', urlAfterClick);
+    }
 
     // Wait a moment for the form to submit
     await page.waitForTimeout(3000);
@@ -182,15 +196,26 @@ async function submitOtp(code) {
     // Fill OTP input
     await page.fill('input#otp', code, { timeout: 10000 });
 
-    // The form auto-submits when 6 digits are entered, but let's also click submit
-    await page.click('button[type="submit"]');
+    // The form auto-submits when 6 digits are entered, but let's also click submit.
+    // May timeout due to Zelty's redirect to app.zelty.fr (slow SPA load).
+    try {
+      await page.click('button[type="submit"]', { timeout: config.scraping.navigationTimeout });
+    } catch (clickErr) {
+      const urlAfterOtp = page.url();
+      const navigatedAway =
+        urlAfterOtp.includes('app.zelty.fr') ||
+        urlAfterOtp.includes('/home') ||
+        urlAfterOtp.includes('/board');
+      if (!navigatedAway) throw clickErr;
+      console.log('[Scraper] OTP click navigation timeout (SPA), but navigated to:', urlAfterOtp);
+    }
 
     // Wait for redirect
     await page.waitForTimeout(5000);
     console.log('[Scraper] After OTP submit, URL:', page.url());
 
-    // Check if we're now logged in
-    if (page.url().includes('/home') || page.url().includes('/board') || page.url().includes('/dashboard')) {
+    // Check if we're now logged in (including new app.zelty.fr domain)
+    if (page.url().includes('app.zelty.fr') || page.url().includes('/home') || page.url().includes('/board') || page.url().includes('/dashboard')) {
       console.log('[Scraper] OTP verified, login successful!');
       waitingForOtp = false;
       otpEmail = null;
